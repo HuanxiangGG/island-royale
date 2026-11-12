@@ -1,0 +1,6 @@
+# Append this isolated site block to the existing host Caddy configuration.
+# Do not replace other site blocks. Requires the domain DNS to point to this VPS.
+island.6hx9.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:4180
+}

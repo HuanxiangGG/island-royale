@@ -1,0 +1,29 @@
+name: island-royale
+services:
+  game:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:4180:4180"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "4180"
+      MAX_ROOMS: "6"
+      MAX_CONNECTIONS: "120"
+      ALLOWED_ORIGINS: "https://island.6hx9.com,https://huanxianggg.github.io"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 384m
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

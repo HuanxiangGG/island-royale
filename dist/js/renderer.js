@@ -1,4 +1,5 @@
 import { WEAPONS } from './game.js';
+import { drawWeapon, rarityColor } from './weapon-art.js';
 
 const TAU = Math.PI * 2;
 const colors = { grass: '#a8c977', grassDark: '#83ad65', sand: '#e6d6a2', ink: '#233e36', water: '#76b9b0' };
@@ -25,30 +26,6 @@ function path(ctx, points, fill, stroke, width = 1) {
 }
 
 function hash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
-
-function drawWeapon(ctx, index, x, y, scale = 1) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
-  const tint = WEAPONS[index]?.color || '#e9bb68';
-  if (index === 2) {
-    rounded(ctx, -15, -4, 40, 7, 2, '#31453d');
-    rounded(ctx, -8, -5, 18, 9, 2, tint);
-    rounded(ctx, 0, 3, 6, 8, 1, '#31453d');
-    rounded(ctx, -20, -5, 9, 10, 2, '#b08453');
-  } else if (index === 3) {
-    rounded(ctx, -18, -3, 48, 6, 2, '#31453d');
-    rounded(ctx, -10, -5, 24, 10, 2, tint);
-    rounded(ctx, -4, -8, 14, 3, 1, '#263b33');
-    rounded(ctx, -20, -5, 8, 10, 2, '#9e7652');
-    rounded(ctx, -2, 4, 5, 7, 1, '#31453d');
-  } else {
-    rounded(ctx, -18, -4, 42 - (index === 4 ? 10 : 0), 8, 2, '#2f443b');
-    rounded(ctx, -12, -6, 21, 12, 3, tint);
-    rounded(ctx, -3, 5, 8, 9, 2, '#2f443b');
-    rounded(ctx, -24, -5, 9, 10, 2, '#a8b6a1');
-    rounded(ctx, 4, -5, 7, 2, 1, '#e9ecdc');
-  }
-  ctx.restore();
-}
 
 export class Renderer {
   constructor(canvas, minimapCanvas) {
@@ -132,14 +109,18 @@ export class Renderer {
     const dt = Math.min(.08, this.lastFrame ? now - this.lastFrame : .016); this.lastFrame = now;
     const size = state.worldSize || 2800;
     if (!this.terrain || this.terrainSize !== size) this.makeTerrain(size);
-    const targetZoom = lobby ? Math.max(.32, Math.min(.56, this.width / 2600)) : Math.max(.65, Math.min(1.08, this.width / 1150));
+    const airborne = state.player.dropState === 'plane' || state.player.dropState === 'falling';
+    const altitude = airborne ? Math.max(0,Math.min(1,state.player.altitude ?? 1)) : 0;
+    const groundZoom = Math.max(.65, Math.min(1.08, this.width / 1150));
+    const flightZoom = state.player.dropState === 'plane' ? .5 : groundZoom * (1 - altitude * .36);
+    const targetZoom = lobby ? Math.max(.32, Math.min(.56, this.width / 2600)) : airborne ? flightZoom : groundZoom;
     const targetX = lobby ? size / 2 + Math.sin(now * .045) * 70 : state.player.x;
-    const targetY = lobby ? size / 2 - 110 + Math.cos(now * .04) * 50 : state.player.y;
+    const targetY = lobby ? size / 2 - 110 + Math.cos(now * .04) * 50 : state.player.y - altitude * 90;
     if (this.lastMode !== lobby) { this._camera = { x: targetX, y: targetY, zoom: targetZoom }; this.lastMode = lobby; }
     const ease = 1 - Math.exp(-9 * dt);
     this._camera.x += (targetX - this._camera.x) * ease;
     this._camera.y += (targetY - this._camera.y) * ease;
-    this._camera.zoom += (targetZoom - this._camera.zoom) * ease;
+    this._camera.zoom += (targetZoom - this._camera.zoom) * (1 - Math.exp(-2.4 * dt));
     const { x, y, zoom } = this._camera;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = colors.water; ctx.fillRect(0, 0, this.width, this.height);
@@ -152,7 +133,7 @@ export class Renderer {
     for (const item of state.loot || []) if (item.alive !== false && this.visible(item)) this.drawLoot(ctx, item, now);
     const solid = (state.obstacles || []).filter(o => o.alive !== false && this.visible(o));
     for (const o of solid) if (o.type !== 'tree') this.drawObstacle(ctx, o);
-    for (const a of state.actors || [state.player]) if (a.alive && this.visible(a)) this.drawActor(ctx, a, now, lobby);
+    for (const a of state.actors || [state.player]) if (a.alive && this.visible(a) && (lobby || !a.dropState || a.dropState === 'ground')) this.drawActor(ctx, a, now, lobby);
     for (const b of state.bullets || []) {
       ctx.beginPath(); ctx.moveTo(b.px ?? b.x - b.vx * .016, b.py ?? b.y - b.vy * .016); ctx.lineTo(b.x, b.y);
       ctx.strokeStyle = b.owner === state.player.id ? '#fff6b6' : '#ffd49c'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.stroke();
@@ -161,6 +142,10 @@ export class Renderer {
     for (const o of solid) if (o.type === 'tree') {
       ctx.save(); if (Math.hypot(o.x - state.player.x, o.y - state.player.y) < (o.w || 70) * .75) ctx.globalAlpha = .45;
       this.drawObstacle(ctx, o); ctx.restore();
+    }
+    if (!lobby) {
+      for (const a of state.actors || []) if (a.alive && a.dropState === 'falling' && this.visible(a)) this.drawParachutist(ctx,a,now);
+      if (state.phase === 'flight' && state.drop?.plane) this.drawPlane(ctx,state.drop.plane,now);
     }
     for (const p of state.particles || []) {
       ctx.globalAlpha = Math.max(0, Math.min(1, p.life / (p.maxLife || .5)));
@@ -254,12 +239,18 @@ export class Renderer {
   }
 
   drawLoot(ctx, item, t) {
-    const tint = item.type === 'weapon' ? (WEAPONS[item.weapon]?.color || '#ecd27c') : item.type === 'shield' ? '#7ad2e1' : item.type === 'medkit' ? '#eaa99a' : '#edcf77';
+    const tint = item.type === 'weapon' ? rarityColor(item.rarity) : item.type === 'shield' ? '#7ad2e1' : item.type === 'medkit' ? '#eaa99a' : '#edcf77';
     const pulse = 1 + Math.sin(t * 2.5 + item.x) * .06;
     ctx.save(); ctx.translate(item.x, item.y); ctx.scale(pulse,pulse);
-    circle(ctx, 0, 2, item.type === 'weapon' ? 29 : 20, 'rgba(255,247,205,.13)');
-    circle(ctx, 0, 2, item.type === 'weapon' ? 23 : 16, `${tint}35`, `${tint}b0`, 1.5);
-    if (item.type === 'weapon') drawWeapon(ctx, item.weapon || 0, 0, 0, .85);
+    circle(ctx, 0, 2, item.type === 'weapon' ? 34 : 20, 'rgba(255,247,205,.13)');
+    circle(ctx, 0, 2, item.type === 'weapon' ? 28 : 16, `${tint}35`, `${tint}d9`, 2);
+    if (item.type === 'weapon') {
+      const beam=ctx.createLinearGradient(0,-64,0,10);beam.addColorStop(0,`${tint}00`);beam.addColorStop(1,`${tint}55`);
+      ctx.fillStyle=beam;ctx.fillRect(-12,-64,24,65);
+      ctx.save();ctx.rotate(t*.15);ctx.setLineDash([7,18]);circle(ctx,0,2,33,null,`${tint}a0`,1.5);ctx.restore();
+      drawWeapon(ctx, item.weapon || 0, item.rarity, {scale:.34,y:-3});
+      circle(ctx,0,24,3,tint,'#f9f2d8',1);
+    }
     else if (item.type === 'medkit') {
       rounded(ctx,-11,-10,22,19,4,'#f6f1da','#b86e5c',2);
       rounded(ctx,-3,-6,6,12,1,'#cc735f'); rounded(ctx,-6,-3,12,6,1,'#cc735f');
@@ -283,10 +274,12 @@ export class Renderer {
       path(ctx,[[r+15,0],[r+8,-4],[r+8,4]],'#fff2b9'); ctx.restore();
     }
     ctx.save(); ctx.rotate(a.angle || 0);
+    const speed=Math.hypot(a.vx||0,a.vy||0),stride=Math.sin(t*15)*Math.min(3.5,speed/60);
+    circle(ctx,-r*.6+stride,-r*.6,r*.34,'#455a49');circle(ctx,-r*.6-stride,r*.6,r*.34,'#455a49');
     rounded(ctx, -r*.45, -r*.82, r*.85, r*1.64, 5, '#63755a', '#314f3c', 2);
     circle(ctx, r*.6, -r*.65, r*.4, '#e7c79a','#6b7553',1.5);
     circle(ctx, r*.8, r*.6, r*.4, '#e7c79a','#6b7553',1.5);
-    drawWeapon(ctx, a.weapon || 0, r + 7, r*.28, .8);
+    drawWeapon(ctx, a.weapon || 0, a.rarity, {x:r+9,y:r*.28,scale:.28});
     circle(ctx, 0, 0, r, a.color || (a.isPlayer ? '#f3d27e' : '#d58d75'), '#35533c', 2.5);
     circle(ctx, -2, -2, r*.8, a.isPlayer ? '#f4da91' : (a.color || '#dc9b80'));
     if (a.hitFlash > 0) circle(ctx, 0, 0, r, 'rgba(255,248,218,.6)');
@@ -308,6 +301,77 @@ export class Renderer {
         }
       }
     }
+    ctx.restore();
+  }
+
+  drawParachutist(ctx,a,t) {
+    const altitude=Math.max(0,Math.min(1,a.altitude??1)),lift=altitude*90;
+    const wobble=Math.sin(t*2.1+a.x*.008)*.045;
+    ctx.save();ctx.translate(a.x,a.y);
+    ctx.save();ctx.scale(1,.42);circle(ctx,13+altitude*18,25+altitude*28,33-altitude*9,'rgba(28,57,39,.14)');ctx.restore();
+    ctx.translate(0,-lift);ctx.rotate(wobble);
+    // Harness and the hanging pilot are visibly separate from the canopy.
+    ctx.strokeStyle='#f4eacf';ctx.lineWidth=1.7;
+    for(const x of [-52,-27,0,27,52]) {
+      ctx.beginPath();ctx.moveTo(x,-39+Math.abs(x)*.10);ctx.lineTo(x<0?-10:10,17);ctx.stroke();
+    }
+    ctx.save();ctx.translate(Math.sin(t*2)*2,20);
+    rounded(ctx,-10,-3,20,24,6,'#4a6b59','#2c4c40',2);
+    rounded(ctx,-14,16,9,14,3,'#374f44');rounded(ctx,5,16,9,14,3,'#374f44');
+    circle(ctx,-15,1,5,'#e4c294','#637254',1);circle(ctx,15,1,5,'#e4c294','#637254',1);
+    circle(ctx,0,-9,13,a.isPlayer?'#f4ce74':(a.color||'#d18d78'),'#355244',2);
+    rounded(ctx,-7,-14,14,6,3,'#365a4f');rounded(ctx,-5,-13,7,2,1,'#c7d8b7');
+    ctx.strokeStyle='#d1bc87';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-8,-1);ctx.lineTo(6,17);ctx.moveTo(8,-1);ctx.lineTo(-6,17);ctx.stroke();ctx.restore();
+    // Five stitched fabric panels, curved leading edge and scalloped lower edge.
+    const base=a.isPlayer?'#e7ba60':'#a5c9b1';
+    ctx.beginPath();ctx.moveTo(-58,-35);ctx.bezierCurveTo(-54,-94,54,-94,58,-35);
+    ctx.quadraticCurveTo(43,-45,30,-35);ctx.quadraticCurveTo(15,-45,0,-35);
+    ctx.quadraticCurveTo(-15,-45,-30,-35);ctx.quadraticCurveTo(-43,-45,-58,-35);ctx.closePath();
+    ctx.fillStyle=base;ctx.fill();ctx.strokeStyle='#4e7762';ctx.lineWidth=2;ctx.stroke();
+    ctx.save();ctx.clip();
+    ctx.beginPath();ctx.moveTo(-28,-94);ctx.bezierCurveTo(-43,-72,-42,-50,-30,-35);ctx.lineTo(0,-35);ctx.bezierCurveTo(-10,-59,-11,-77,-4,-94);ctx.closePath();ctx.fillStyle='#f5edca';ctx.fill();
+    ctx.beginPath();ctx.moveTo(24,-94);ctx.bezierCurveTo(37,-73,39,-52,30,-35);ctx.lineTo(58,-35);ctx.lineTo(65,-90);ctx.closePath();ctx.fillStyle='#668e70';ctx.fill();
+    ctx.strokeStyle='rgba(65,96,72,.4)';ctx.lineWidth=1;
+    for(const x of [-30,0,30]){ctx.beginPath();ctx.moveTo(x*.3,-84);ctx.quadraticCurveTo(x*1.1,-61,x,-35);ctx.stroke();}
+    ctx.beginPath();ctx.ellipse(0,-65,52,17,0,Math.PI,Math.PI*2);ctx.strokeStyle='rgba(255,251,220,.4)';ctx.lineWidth=3;ctx.stroke();
+    ctx.restore();
+    if(a.isPlayer) {
+      ctx.font='700 12px system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='#294f40';ctx.fillText(a.name||'旅人',0,51);
+      ctx.fillStyle='rgba(248,242,210,.8)';rounded(ctx,-24,59,48,4,2,'rgba(38,67,49,.2)');rounded(ctx,-24,59,48*(1-altitude),4,2,'#fff0a7');
+    }
+    ctx.restore();
+  }
+
+  drawPlane(ctx,plane,t) {
+    if(!Number.isFinite(plane.x)||!Number.isFinite(plane.y))return;
+    ctx.save();ctx.translate(plane.x,plane.y-90);ctx.rotate(plane.angle||0);
+    // The aircraft silhouette and four propellers stay readable at flight zoom.
+    const silhouette=(fill='#e5e9cf')=>{
+      path(ctx,[[-139,-21],[-90,-21],[-37,-35],[-10,-153],[33,-153],[27,-27],[132,-22],[169,-10],[178,0],[169,10],[132,22],[27,27],[33,153],[-10,153],[-37,35],[-90,21],[-139,21],[-115,0]],fill,'#31554f',3);
+    };
+    ctx.save();ctx.translate(-18,145);ctx.globalAlpha=.13;silhouette('#294b3e');ctx.restore();
+    for(const y of [-110,-58,58,110]){
+      const trail=ctx.createLinearGradient(-180,y,-30,y);trail.addColorStop(0,'rgba(244,250,225,0)');trail.addColorStop(1,'rgba(244,250,225,.32)');
+      ctx.fillStyle=trail;ctx.fillRect(-180,y-3,170,6);
+    }
+    silhouette();
+    path(ctx,[[-22,-145],[23,-145],[16,-35],[-30,-35]],'#6d9a88');
+    path(ctx,[[-22,145],[23,145],[16,35],[-30,35]],'#6d9a88');
+    rounded(ctx,-12,-146,14,112,0,'#d9bb6b');rounded(ctx,-12,34,14,112,0,'#d9bb6b');
+    path(ctx,[[-139,-19],[-105,-58],[-77,-58],[-94,-12]],'#769d88','#37594e',2);
+    path(ctx,[[-139,19],[-105,58],[-77,58],[-94,12]],'#769d88','#37594e',2);
+    rounded(ctx,-125,-17,276,34,15,'#f0efd7','#577b66',2);
+    rounded(ctx,-74,-16,40,32,2,'#669782');rounded(ctx,-62,-17,8,34,1,'#dec071');
+    path(ctx,[[117,-18],[143,-13],[150,-6],[122,-5]],'#456f68');
+    path(ctx,[[117,18],[143,13],[150,6],[122,5]],'#456f68');
+    rounded(ctx,146,-5,14,10,4,'#52786c');
+    for(let x=-14;x<100;x+=19)rounded(ctx,x,-6,10,12,3,'#71958a');
+    for(const y of [-110,-58,58,110]){
+      rounded(ctx,-15,y-10,58,20,8,'#f0ecd2','#466d5b',2);rounded(ctx,25,y-10,17,20,5,'#d6b96b');
+      circle(ctx,48,y,25,'rgba(234,241,214,.2)');
+      ctx.save();ctx.translate(48,y);ctx.rotate(t*32+y);rounded(ctx,-3,-25,6,50,3,'rgba(54,85,73,.65)');ctx.rotate(Math.PI/2);rounded(ctx,-3,-25,6,50,3,'rgba(54,85,73,.65)');ctx.restore();circle(ctx,48,y,5,'#406457');
+    }
+    ctx.font='700 12px ui-monospace,monospace';ctx.textAlign='center';ctx.fillStyle='#e8eed4';ctx.save();ctx.translate(8,-78);ctx.rotate(-Math.PI/2);ctx.fillText('ISLAND 01',0,0);ctx.restore();
     ctx.restore();
   }
 
@@ -342,7 +406,12 @@ export class Renderer {
       if(z.nextRadius && z.nextRadius<z.radius-20){ctx.setLineDash([3/sx,3/sx]);circle(ctx,z.x,z.y,z.nextRadius,null,'rgba(255,252,223,.5)',1/sx);ctx.setLineDash([]);}
     }
     const p=state.player;
-    for(const a of state.actors||[]) if(!a.isPlayer&&a.alive&&Math.hypot(a.x-p.x,a.y-p.y)<520)circle(ctx,a.x,a.y,2/sx,'#c86b55');
+    for(const a of state.actors||[]) if(!a.isPlayer&&a.alive&&a.dropState!=='plane'&&Math.hypot(a.x-p.x,a.y-p.y)<520)circle(ctx,a.x,a.y,2/sx,'#c86b55');
+    if(state.phase==='flight'&&state.drop?.plane) {
+      const plane=state.drop.plane;
+      ctx.save();ctx.translate(plane.x,plane.y);ctx.rotate(plane.angle||0);
+      path(ctx,[[8/sx,0],[-5/sx,-6/sx],[-2/sx,0],[-5/sx,6/sx]],'#eef1cf','#365e4f',1/sx);ctx.restore();
+    }
     circle(ctx,p.x,p.y,5/sx,'#fff8cc','#315b48',1.5/sx);
     ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle||0);path(ctx,[[9/sx,0],[5/sx,-3/sx],[5/sx,3/sx]],'#fff8cc');ctx.restore();
     ctx.restore();

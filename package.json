@@ -1,6 +1,6 @@
 {
   "name": "island-royale",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "荒岛突围 · 原创 2D 浏览器大逃杀游戏",
@@ -8,7 +8,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "start": "node scripts/serve.mjs",
+    "start": "node server/index.mjs",
+    "preview": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "ws": "8.22.2"
   }
 }

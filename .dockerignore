@@ -1,0 +1,11 @@
+.git
+.github
+.openai
+node_modules
+tests
+work
+outputs
+*.zip
+*.log
+.env*
+.DS_Store
