@@ -14,7 +14,7 @@ const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; chars
 const pick = (object, fields) => Object.fromEntries(fields.filter(key => object[key] !== undefined).map(key => [key, object[key]]));
 
 // No RNG functions, AI targets, socket details or server-only room data leave the server.
-export function snapshotState(state, {includeObstacles=true,includeLoot=true} = {}) {
+export function snapshotState(state, {includeObstacles=true,includeLoot=true,includeBuildings=true,includeRegions=true} = {}) {
   const snapshot = {
     ...pick(state, ['worldSize','seed','time','combatTime','phase','phaseRemaining','status','winnerId','drop','zone','kills','placement']),
     actors: state.actors.map(actor => pick(actor, actor.isBot ? BOT_FIELDS : ACTOR_FIELDS)),
@@ -22,13 +22,17 @@ export function snapshotState(state, {includeObstacles=true,includeLoot=true} = 
     particles: state.particles.slice(-100),
     events: state.events.slice(0, 8),
   };
-  if (includeObstacles) snapshot.obstacles=state.obstacles.map(obstacle=>pick(obstacle,['id','x','y','w','h','type','hp','maxHp','alive']));
+  if (includeObstacles) snapshot.obstacles=state.obstacles.map(obstacle=>pick(obstacle,['id','x','y','w','h','type','hp','maxHp','alive','buildingId']));
   if (includeLoot) snapshot.loot=state.loot.filter(item=>item.alive).map(item=>pick(item,['id','x','y','type','weapon','rarity','amount','alive']));
+  if (includeBuildings) snapshot.buildings=(state.buildings || []).map(building=>pick(building,['id','x','y','w','h','doorSide','doorWidth','style','name']));
+  if (includeRegions) snapshot.regions=(state.regions || []).map(region=>pick(region,['id','name','x','y','style']));
   return snapshot;
 }
 
 const obstacleSignature=state=>state.obstacles.map(item=>`${item.id}:${item.alive}:${item.hp}`).join('|');
 const lootSignature=state=>state.loot.map(item=>`${item.id}:${item.alive}:${item.weapon}:${item.rarity}`).join('|');
+const buildingSignature=state=>JSON.stringify(state.buildings || []);
+const regionSignature=state=>JSON.stringify(state.regions || []);
 const encode=data=>JSON.stringify(data,(_,value)=>typeof value==='number'&&Number.isFinite(value)?Math.round(value*100)/100:value);
 
 export function createRoyaleServer(options = {}) {
@@ -94,6 +98,8 @@ export function createRoyaleServer(options = {}) {
     room.state = createGame({seed:Date.now(),players,botCount:CAPACITY-players.length,drop:config.drop ?? true,multiplayer:true});
     room.phase = 'playing'; room.tick = 0;
     room.obstacleSignature=obstacleSignature(room.state);room.lootSignature=lootSignature(room.state);
+    room.buildingSignature=buildingSignature(room.state);
+    room.regionSignature=regionSignature(room.state);
     for (const client of room.clients) send(client,{type:'start',roomId:room.id,playerId:client.id,state:snapshotState(room.state)});
   }
   function join(client, data) {
@@ -192,9 +198,9 @@ export function createRoyaleServer(options = {}) {
       for (const client of room.clients) inputs[client.id]=now-client.inputAt < 400 ? client.input : {};
       stepGame(room.state,STEP,inputs); room.tick++;
       if (room.tick%3===0) {
-        const obstacles=obstacleSignature(room.state),loot=lootSignature(room.state);
-        const state=snapshotState(room.state,{includeObstacles:obstacles!==room.obstacleSignature,includeLoot:loot!==room.lootSignature});
-        room.obstacleSignature=obstacles;room.lootSignature=loot;
+        const obstacles=obstacleSignature(room.state),loot=lootSignature(room.state),buildings=buildingSignature(room.state),regions=regionSignature(room.state);
+        const state=snapshotState(room.state,{includeObstacles:obstacles!==room.obstacleSignature,includeLoot:loot!==room.lootSignature,includeBuildings:buildings!==room.buildingSignature,includeRegions:regions!==room.regionSignature});
+        room.obstacleSignature=obstacles;room.lootSignature=loot;room.buildingSignature=buildings;room.regionSignature=regions;
         const packet=encode({type:'snapshot',serverTime:now,tick:room.tick,state});
         for (const client of room.clients) send(client,packet);
       }

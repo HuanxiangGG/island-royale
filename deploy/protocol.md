@@ -1,4 +1,4 @@
-# 联机协议 v2
+# 联机协议 v3
 
 浏览器连接同源 `ws(s)://<host>/ws`。服务器在 `GET /config.json` 返回：
 
@@ -36,9 +36,13 @@
 
 真人只会进入等待中的公共房间；首人加入后倒计时 10 秒，满 50 名真人立即开始。开局电脑数为 `50 - 真人数`。玩家与房间 ID 由服务器生成，客户端不能指定。房间开始后不再接受新玩家，新的加入者进入下一间等待房。
 
-状态包含世界尺寸、时间、阶段、空投、区域、角色、障碍、物资、子弹、粒子、事件和胜者 ID。`phase` 依次为 `flight`、`combat`、`finished`。最终 `status` 为 `finished`，`winnerId` 是胜者的字符串 ID 或 `null`。
+状态包含世界尺寸、时间、阶段、空投、区域、角色、障碍、建筑、聚落、物资、子弹、粒子、事件和胜者 ID。`worldSize` 为 8400。`phase` 依次为 `flight`、`combat`、`finished`。最终 `status` 为 `finished`，`winnerId` 是胜者的字符串 ID 或 `null`。
 
-`start` 包含完整的 `obstacles` 和 `loot`。后续快照若世界数组未发生变化会省略该字段；字段出现时是完整替换数组，省略时客户端必须保留上次对应数组。角色、子弹、粒子等动态数组每次替换。电脑角色省略装备栏等不影响远端绘制的私有数据，真人角色保留完整装备状态。
+`flight` 表示仍在空投阶段，不表示所有角色都禁止战斗。以每个角色的 `dropState` 判断：`ground` 角色立即允许移动、拾取和开火，`plane` / `falling` 角色仍在空中。安全区计时在全体落地后开始。`drop.route` 携带航线 `start` / `end` 世界坐标。
+
+`start` 包含完整的 `obstacles`、`loot`、`buildings` 和 `regions`。后续快照若某个世界数组未发生变化会省略该字段；字段出现时是完整替换数组，省略时客户端必须保留上次对应数组。角色、子弹、粒子等动态数组每次替换。电脑角色省略装备栏等不影响远端绘制的私有数据，真人角色保留完整装备状态。
+
+`buildings` 是房屋的静态元数据：`{id,x,y,w,h,doorSide,doorWidth,style,name}`，位置为中心点、尺寸为完整外框，`doorSide` 为 north/south/east/west、门宽 110。实体碰撞由 `obstacles` 内的 `type:"wall"` 墙段承担，墙段的 `buildingId` 关联对应房屋；门洞无实体墙。`regions` 为九处聚落 `{id,name,x,y,style}`，供小地图和全图标注使用。服务器仅首次发送这些静态数组，或在其元数据变化时完整重发。
 
 客户端保存 `start.playerId`，从 `state.actors` 找出自己的角色；自己的击败数与名次读取该角色的 `kills`、`placement`。后续快照不重复发送 `playerId`。服务器不会发送重复的 `state.player` 引用，也不会将任何玩家死亡误判为整个联机房间立即结束。
 

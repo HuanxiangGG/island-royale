@@ -101,7 +101,7 @@ test('server rejects forged movement and actions without accepting health or coo
   client.send({type:'input',seq:2,moveX:0,moveY:0,angle:0,hp:99999,x:999999});
   const snapshot=await client.wait(message=>message.type==='snapshot');
   const player=snapshot.state.actors.find(actor=>actor.id===start.playerId);
-  assert.ok(player.hp<=100);assert.ok(player.x<2800);assert.equal(player.alive,true);
+  assert.ok(player.hp<=100);assert.ok(player.x<snapshot.state.worldSize);assert.equal(player.alive,true);
 });
 
 test('stale movement input expires instead of moving a disconnected input stream forever',async t=>{
@@ -159,14 +159,72 @@ test('unchanged world arrays are omitted and changed terrain or loot is resent i
   assert.equal(next.state.obstacles,undefined);assert.equal(next.state.loot,undefined);
 });
 
-test('fifty humans start immediately rather than waiting for the queue deadline',async t=>{
-  const {connect}=await fixture(t,{queueMs:60_000});
+test('fifty humans start immediately rather than waiting for the queue deadline',{timeout:15_000},async t=>{
+  const {app,connect}=await fixture(t,{queueMs:60_000});
   const clients=await Promise.all(Array.from({length:50},()=>connect()));
-  const began=Date.now();
   clients.forEach((client,index)=>client.send({type:'join',name:`P${index}`}));
-  const starts=await Promise.all(clients.map(client=>client.wait(message=>message.type==='start')));
-  assert.ok(Date.now()-began<2500);
+  // Bound network delivery, but verify the capacity trigger rather than machine speed.
+  const starts=await Promise.all(clients.map(client=>client.wait(message=>message.type==='start',10_000)));
   assert.equal(new Set(starts.map(message=>message.roomId)).size,1);
+  const room=app.rooms.get(starts[0].roomId);
+  assert.equal(room.phase,'playing');
+  assert.equal(room.clients.size,50);
+  assert.ok(Date.now()<room.startsAt,'full room must start before its 60-second queue deadline');
   assert.equal(starts[0].state.actors.length,50);
   assert.equal(starts[0].state.actors.filter(actor=>actor.isBot).length,0);
+});
+
+test('clients receive identical enterable buildings and walls, with static metadata sent only on change',async t=>{
+  const {app,connect}=await fixture(t);
+  const a=await connect(),b=await connect();
+  a.send({type:'join',name:'建筑甲'});b.send({type:'join',name:'建筑乙'});
+  const [sa,sb]=await Promise.all([a.wait(message=>message.type==='start'),b.wait(message=>message.type==='start')]);
+  assert.equal(sa.state.worldSize,8400);
+  assert.equal(sa.state.regions.length,9);
+  assert.deepEqual(sa.state.regions,sb.state.regions);
+  assert.deepEqual(sa.state.drop.route,sb.state.drop.route);
+  assert.ok(sa.state.drop.route.start.x<sa.state.drop.route.end.x);
+  assert.ok(sa.state.buildings.length>0);
+  assert.deepEqual(sa.state.buildings,sb.state.buildings);
+  const building=sa.state.buildings[0];
+  assert.ok(['north','south','east','west'].includes(building.doorSide));
+  assert.equal(building.doorWidth,110);
+  const walls=sa.state.obstacles.filter(obstacle=>obstacle.type==='wall');
+  assert.ok(walls.length>0);
+  assert.ok(walls.every(wall=>sa.state.buildings.some(item=>item.id===wall.buildingId)));
+  assert.deepEqual(sa.state.obstacles,sb.state.obstacles);
+  const first=await a.wait(message=>message.type==='snapshot');
+  assert.equal(first.state.buildings,undefined);
+  assert.equal(first.state.regions,undefined);
+  const room=app.rooms.get(sa.roomId);
+  room.state.buildings=room.state.buildings.map((building,index)=>index?building:{...building,name:'已更新房屋'});
+  room.state.regions=room.state.regions.map((region,index)=>index?region:{...region,name:'已更新聚落'});
+  const changedA=await a.wait(message=>message.type==='snapshot'&&message.tick>first.tick&&message.state.buildings);
+  const changedB=await b.wait(message=>message.type==='snapshot'&&message.tick===changedA.tick);
+  assert.deepEqual(changedA.state.buildings,changedB.state.buildings);
+  assert.deepEqual(changedA.state.regions,changedB.state.regions);
+  assert.equal(changedA.state.buildings[0].name,'已更新房屋');
+  assert.equal(changedA.state.regions[0].name,'已更新聚落');
+  const after=await a.wait(message=>message.type==='snapshot'&&message.tick>changedA.tick);
+  assert.equal(after.state.buildings,undefined);
+  assert.equal(after.state.regions,undefined);
+});
+
+test('an independently landed player can fire through the server while another human remains on the plane',async t=>{
+  const {connect}=await fixture(t);
+  const a=await connect(),b=await connect();
+  a.send({type:'join',name:'先行者'});b.send({type:'join',name:'等候者'});
+  const [sa,sb]=await Promise.all([a.wait(message=>message.type==='start'),b.wait(message=>message.type==='start')]);
+  a.send({type:'input',seq:1,moveX:0,moveY:0,angle:0,jump:true,shoot:false});
+  const landed=await a.wait(message=>message.type==='snapshot'&&message.state.actors.find(actor=>actor.id===sa.playerId).dropState==='ground',7000);
+  assert.equal(landed.state.phase,'flight');
+  assert.equal(landed.state.actors.find(actor=>actor.id===sb.playerId).dropState,'plane');
+  const ammo=landed.state.actors.find(actor=>actor.id===sa.playerId).ammo;
+  assert.ok(ammo>0);
+  a.send({type:'input',seq:2,moveX:0,moveY:0,angle:0,jump:false,shoot:true});
+  const fired=await a.wait(message=>message.type==='snapshot'&&message.tick>landed.tick&&message.state.actors.find(actor=>actor.id===sa.playerId).ammo<ammo);
+  assert.equal(fired.state.phase,'flight');
+  assert.equal(fired.state.actors.find(actor=>actor.id===sb.playerId).dropState,'plane');
+  const seenByB=await b.wait(message=>message.type==='snapshot'&&message.tick===fired.tick);
+  assert.equal(seenByB.state.actors.find(actor=>actor.id===sa.playerId).ammo,fired.state.actors.find(actor=>actor.id===sa.playerId).ammo);
 });

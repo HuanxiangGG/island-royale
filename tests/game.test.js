@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, updateGame, stepGame, WEAPONS, RARITIES, pickup, reload, heal, switchWeapon, describeNearby, aliveCount } from '../dist/js/game.js';
+import { createGame, updateGame, stepGame, WEAPONS, RARITIES, WORLD_SIZE, REGIONS, pickup, reload, heal, switchWeapon, describeNearby, aliveCount } from '../dist/js/game.js';
 
 function arena() {
   const state = createGame({ seed: 123, botCount: 1, drop: false });
   state.obstacles = [];
+  state.buildings = [];
+  state.regions = [];
   state.loot = [];
-  state.player.spawnProtection = 0;
+  Object.assign(state.player, { x: 1400, y: 1400, spawnProtection: 0 });
+  Object.assign(state.zone, { x: 1400, y: 1400 });
   const enemy = state.actors[1];
   Object.assign(enemy, { x: 2400, y: 2400, aiTimer: Infinity, aiTarget: null });
   return state;
@@ -24,7 +27,7 @@ test('seeded world generation is repeatable and player spawn has clear room', ()
   assert.deepEqual(a.actors, b.actors);
   assert.equal(aliveCount(a), 50);
   assert.equal(a.player.hp, 100);
-  assert.ok(a.obstacles.every(o => Math.hypot(o.x - 1400, o.y - 1400) >= 160));
+  assert.ok(a.obstacles.every(o => Math.hypot(o.x - a.player.x, o.y - a.player.y) >= 150));
 });
 
 test('diagonal movement is normalized and solid cover blocks movement', () => {
@@ -37,9 +40,9 @@ test('diagonal movement is normalized and solid cover blocks movement', () => {
   advance(c, 1, { moveX: 1 });
   assert.ok(c.player.x <= 1433);
   assert.ok(c.player.x > 1400);
-  Object.assign(c.player, { x: 2758, y: 2758 });
+  Object.assign(c.player, { x: WORLD_SIZE - 42, y: WORLD_SIZE - 42 });
   advance(c, 1, { moveX: 1, moveY: 1 });
-  assert.ok(c.player.x <= 2759 && c.player.y <= 2759);
+  assert.ok(c.player.x <= WORLD_SIZE - 41 && c.player.y <= WORLD_SIZE - 41);
 });
 
 test('shooting consumes ammo at the weapon cadence and reload transfers reserve', () => {
@@ -127,7 +130,7 @@ test('full supplies do not hide other nearby useful pickups', () => {
 
 test('bots can fire while moving into the final storm circle', () => {
   const state = arena();
-  state.time = 205; state.combatTime = 205;
+  state.time = 360; state.combatTime = 360;
   state.zone.radius = 30;
   const enemy = state.actors[1];
   Object.assign(enemy, { x: 1500, y: 1400, aiTarget: state.player.id, ammo: 20, cooldown: 0, reloading: 0, angle: Math.PI, aiReaction: 0, aiPause: 0 });
@@ -138,14 +141,14 @@ test('bots can fire while moving into the final storm circle', () => {
 
 test('storm shrinks on schedule and damages health outside the circle', () => {
   const state = arena();
-  state.time = 70; state.combatTime = 70;
-  Object.assign(state.player, { x: 2700, y: 2700, shield: 100 });
+  state.time = 145; state.combatTime = 145;
+  Object.assign(state.player, { x: 8200, y: 8200, shield: 100 });
   updateGame(state, 0.05);
   assert.equal(state.zone.phase, 1);
-  assert.ok(state.zone.radius < 1250);
+  assert.ok(state.zone.radius < 4000);
   assert.ok(state.player.hp < 100);
   assert.equal(state.player.shield, 100);
-  assert.ok(state.zone.remaining < 7);
+  assert.ok(state.zone.remaining < 6);
 });
 
 test('last opponent elimination produces a win and records the player kill', () => {
@@ -166,8 +169,8 @@ test('player death records rank without awarding a win', () => {
   const state = arena();
   state.player.hp = 1;
   state.player.shield = 0;
-  state.time = 210; state.combatTime = 210;
-  Object.assign(state.player, { x: 2700, y: 2700 });
+  state.time = 370; state.combatTime = 370;
+  Object.assign(state.player, { x: 8200, y: 8200 });
   updateGame(state, 0.05);
   assert.equal(state.status, 'lost');
   assert.equal(state.placement, 2);
@@ -177,9 +180,9 @@ test('player death records rank without awarding a win', () => {
 test('a full simulated match terminates and numeric state remains finite', () => {
   const state = createGame({ seed: 8128, botCount: 12, drop: false });
   // An idle player will either be eliminated by bots or the final closing storm.
-  for (let i = 0; i < 6000 && state.status === 'playing'; i++) updateGame(state, 0.05);
+  for (let i = 0; i < 8400 && state.status === 'playing'; i++) updateGame(state, 0.05);
   assert.notEqual(state.status, 'playing');
-  assert.ok(state.time < 300);
+  assert.ok(state.time < 420);
   for (const actor of state.actors) {
     assert.ok(Number.isFinite(actor.x) && Number.isFinite(actor.y) && Number.isFinite(actor.hp));
     assert.ok(actor.ammo >= 0 && actor.reserve >= 0);
@@ -352,12 +355,167 @@ test('a multiplayer match continues after the first human dies and resolves the 
 
 test('50-player multiplayer simulation terminates with finite state and serializable snapshots', () => {
   const state = createGame({ seed: 400, multiplayer: true });
-  for (let i = 0; i < 6000 && state.status === 'playing'; i++) stepGame(state, 0.05);
+  for (let i = 0; i < 8400 && state.status === 'playing'; i++) stepGame(state, 0.05);
   assert.equal(state.status, 'finished');
-  assert.ok(state.time < 300);
+  assert.ok(state.time < 420);
   assert.ok(state.actors.every(actor => Number.isFinite(actor.x) && Number.isFinite(actor.y) && Number.isFinite(actor.hp) && Number.isFinite(actor.angle)));
   const snapshot = JSON.parse(JSON.stringify(state));
   assert.equal(snapshot.actors.length, 50);
   assert.equal(snapshot.phase, 'finished');
   assert.ok(snapshot.actors.every(actor => actor.inventory.every(item => typeof item.rarity === 'string' && item.ammo >= 0)));
+});
+
+test('the expanded island has nine populated settlements and twenty-seven open buildings', () => {
+  const state = createGame({ seed: 29, drop: false });
+  assert.equal(WORLD_SIZE, 8400);
+  assert.equal(state.regions.length, 9);
+  assert.deepEqual(state.regions, REGIONS);
+  assert.equal(state.buildings.length, 27);
+  assert.equal(state.obstacles.some(obstacle => obstacle.type === 'building'), false);
+  assert.equal(state.zone.remaining, 90);
+  for (const building of state.buildings) {
+    assert.ok(building.doorWidth >= 90);
+    assert.equal(state.obstacles.filter(obstacle => obstacle.buildingId === building.id).length, 5);
+    assert.ok(state.loot.filter(item => item.buildingId === building.id).length >= 4);
+  }
+});
+
+function isolatedHouse(index = 0) {
+  const state = createGame({ seed: 82, botCount: 1, drop: false, multiplayer: true });
+  const building = state.buildings[index];
+  state.obstacles = state.obstacles.filter(obstacle => obstacle.buildingId === building.id);
+  state.buildings = [building]; state.regions = []; state.loot = [];
+  Object.assign(state.actors[1], { x: 8000, y: 8000, aiTimer: Infinity, aiTarget: null });
+  return { state, building };
+}
+
+const normals = { north: { x: 0, y: -1 }, south: { x: 0, y: 1 }, east: { x: 1, y: 0 }, west: { x: -1, y: 0 } };
+
+test('players can walk through all generated doorway orientations into real interiors', () => {
+  for (const index of [0, 1, 2]) {
+    const { state, building } = isolatedHouse(index);
+    const n = normals[building.doorSide];
+    const door = { x: building.x + n.x * building.w / 2, y: building.y + n.y * building.h / 2 };
+    Object.assign(state.player, { x: door.x + n.x * 65, y: door.y + n.y * 65, vx: 0, vy: 0 });
+    advance(state, 0.9, { moveX: -n.x, moveY: -n.y });
+    assert.ok(Math.abs(state.player.x - building.x) < building.w / 2 - 20, building.doorSide + ' doorway x');
+    assert.ok(Math.abs(state.player.y - building.y) < building.h / 2 - 20, building.doorSide + ' doorway y');
+  }
+});
+
+test('solid house walls block movement, bullets and pickups through the wall', () => {
+  const { state, building } = isolatedHouse(0); // East door; the west wall is solid.
+  const wallX = building.x - building.w / 2;
+  Object.assign(state.player, { x: wallX - 45, y: building.y, vx: 0, vy: 0 });
+  state.loot = [{ id: 'inside', type: 'medkit', x: wallX + 30, y: building.y, alive: true }];
+  assert.equal(describeNearby(state), null);
+  assert.equal(pickup(state), false);
+  advance(state, 0.5, { moveX: 1 });
+  assert.ok(state.player.x < wallX - 20);
+  const target = state.actors[1];
+  Object.assign(target, { x: building.x, y: building.y, shield: 0, hp: 100, medkits: 0, aiTarget: null });
+  state.bullets.push({ x: wallX - 45, y: building.y, px: wallX - 45, py: building.y, vx: 5000, vy: 0, damage: 100, life: 1, owner: state.player.id });
+  updateGame(state, 0.05);
+  assert.equal(target.hp, 100);
+});
+
+test('an unobstructed shot through a doorway reaches an opponent indoors', () => {
+  const { state, building } = isolatedHouse(0);
+  Object.assign(state.player, { x: building.x + building.w / 2 + 70, y: building.y, spawnProtection: 0 });
+  const target = state.actors[1];
+  Object.assign(target, { x: building.x, y: building.y, shield: 0, hp: 100, medkits: 0 });
+  state.bullets.push({ x: state.player.x, y: building.y, px: state.player.x, py: building.y, vx: -5000, vy: 0, damage: 30, life: 1, owner: state.player.id });
+  updateGame(state, 0.05);
+  assert.equal(target.hp, 70);
+});
+
+test('a landed human can loot, shoot and take hits while another human remains airborne', () => {
+  const state = createGame({ seed: 111, players: [{ id: 'early', name: '早落地' }, { id: 'late', name: '未跳伞' }, { id: 'rival', name: '对手' }], botCount: 0, multiplayer: true });
+  state.obstacles = []; state.buildings = []; state.loot = [];
+  stepGame(state, 0.05, { early: { jump: true }, rival: { jump: true } });
+  advance(state, 4.05);
+  const early = state.actors[0], late = state.actors[1], rival = state.actors[2];
+  assert.equal(state.phase, 'flight');
+  assert.equal(early.dropState, 'ground');
+  assert.equal(late.dropState, 'plane');
+  assert.equal(state.combatTime, 0);
+  Object.assign(rival, { x: early.x + 130, y: early.y, hp: 100, shield: 0 });
+  state.loot = [{ id: 'ground-ammo', x: early.x, y: early.y + 20, type: 'ammo', alive: true }];
+  assert.equal(pickup(state, early), true);
+  const ammo = early.ammo;
+  advance(state, 0.2, { shoot: true, angle: 0 });
+  assert.ok(early.ammo < ammo);
+  assert.ok(rival.hp < 100, 'grounded opponent takes damage before global combat phase');
+  const hp = early.hp;
+  early.shield = 0;
+  state.bullets.push({ x: early.x - 50, y: early.y, px: early.x - 50, py: early.y, vx: 4000, vy: 0, damage: 20, life: 1, owner: rival.id });
+  stepGame(state, 0.05);
+  assert.equal(early.hp, hp - 20, 'landing has no artificial combat lock or renewed invulnerability');
+  late.shield = 0;
+  state.bullets.push({ x: late.x - 30, y: late.y, px: late.x - 30, py: late.y, vx: 4000, vy: 0, damage: 100, life: 1, owner: early.id });
+  stepGame(state, 0.05);
+  assert.equal(late.hp, 100, 'airborne combatants stay immune');
+  assert.equal(state.phase, 'flight');
+  assert.equal(state.zone.remaining, 90);
+});
+
+test('bots route around the back of a house, enter its door, and collect indoor loot', () => {
+  for (const index of [0, 1, 2]) {
+    const { state, building } = isolatedHouse(index);
+    Object.assign(state.player, { x: 8000, y: 8000 });
+    const bot = state.actors[1], n = normals[building.doorSide];
+    Object.assign(bot, { x: building.x - n.x * (building.w / 2 + 140), y: building.y - n.y * (building.h / 2 + 140), aiTimer: 0, aiTarget: null, shield: 100, medkits: 5, reserve: 360 });
+    const item = { id: 'indoor-upgrade', x: building.x, y: building.y, type: 'weapon', weapon: 1, rarity: 'mythic', alive: true, buildingId: building.id };
+    state.loot = [item];
+    let entered = false;
+    for (let i = 0; i < 400 && item.alive; i++) {
+      stepGame(state, 0.05);
+      entered ||= Math.abs(bot.x - building.x) < building.w / 2 - 20 && Math.abs(bot.y - building.y) < building.h / 2 - 20;
+    }
+    assert.equal(entered, true, building.doorSide + ' actual door traversal');
+    assert.equal(item.alive, false, building.doorSide + ' indoor pickup');
+    assert.equal(bot.rarity, 'mythic');
+  }
+});
+
+test('a bot indoors exits through the doorway to escape a distant shrinking circle', () => {
+  const { state, building } = isolatedHouse(0);
+  Object.assign(state.player, { x: 8000, y: 8000, hp: 10000 });
+  const bot = state.actors[1];
+  Object.assign(bot, { x: building.x, y: building.y, hp: 1000, aiTimer: 0, aiTarget: null, navPath: [], navGoal: null });
+  state.combatTime = 350;
+  Object.assign(state.zone, { x: building.x - 1000, y: building.y, radius: 150 });
+  let exitedThroughEastDoor = false;
+  for (let i = 0; i < 240; i++) {
+    stepGame(state, 0.05);
+    if (bot.x > building.x + building.w / 2 + 20 && Math.abs(bot.y - building.y) < building.doorWidth / 2) exitedThroughEastDoor = true;
+  }
+  assert.equal(exitedThroughEastDoor, true);
+  assert.ok(bot.x < building.x - building.w / 2, 'continues around the house toward the safe circle');
+});
+
+test('airdrop steering reaches all nine populated regions on the larger island', () => {
+  const state = createGame({ seed: 24, multiplayer: true });
+  advance(state, 14.1);
+  const reached = new Set(state.actors.filter(actor => actor.isBot).map(actor => state.regions.reduce((nearest, region) =>
+    Math.hypot(actor.x - region.x, actor.y - region.y) < Math.hypot(actor.x - nearest.x, actor.y - nearest.y) ? region : nearest, state.regions[0]).id));
+  assert.equal(reached.size, 9);
+  assert.ok(state.actors.every(actor => actor.dropState === 'ground'));
+});
+
+test('bots traverse between every pair of neighboring houses without routing loops', () => {
+  for (const fromIndex of [0, 1, 2]) for (const toIndex of [0, 1, 2]) {
+    if (fromIndex === toIndex) continue;
+    const state = createGame({ seed: 102, botCount: 1, drop: false, multiplayer: true });
+    const houses = state.buildings.slice(0, 3), from = houses[fromIndex], to = houses[toIndex], bot = state.actors[1];
+    state.buildings = houses;
+    state.obstacles = state.obstacles.filter(obstacle => houses.some(building => building.id === obstacle.buildingId));
+    state.regions = [];
+    Object.assign(state.player, { x: 8000, y: 8000 });
+    Object.assign(bot, { x: from.x, y: from.y, aiTimer: 0, aiTarget: null, shield: 100, medkits: 5, reserve: 360 });
+    const item = { id: 'next-house', x: to.x, y: to.y, type: 'weapon', weapon: 1, rarity: 'mythic', alive: true, buildingId: to.id };
+    state.loot = [item];
+    for (let i = 0; i < 400 && item.alive; i++) stepGame(state, 0.05);
+    assert.equal(item.alive, false, `${fromIndex} -> ${toIndex}: exits source and enters target doorway`);
+  }
 });

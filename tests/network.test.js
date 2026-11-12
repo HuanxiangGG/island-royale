@@ -44,8 +44,10 @@ test('browser transport joins a real server, sends neutral input and preserves s
   const timer=setTimeout(()=>rejectStart(new Error('Join timed out')),2500);t.after(()=>clearTimeout(timer));
   client.connect(`ws://127.0.0.1:${address.port}/ws`,{name:'客户端集成',color:'#edbd5b'});
   const state=await started;assert.equal(state.actors.length,50);assert.ok(state.player);assert.ok(state.obstacles.length>0);
+  assert.equal(state.worldSize,8400);assert.equal(state.buildings.length,27);assert.equal(state.regions.length,9);
   client.setInput({moveX:0,moveY:0,angle:0,shoot:false,sprint:false});client.jump();
   await new Promise(resolve=>setTimeout(resolve,250));
   assert.equal(error,undefined);const next=client.sample();assert.ok(next.loot.length>0);assert.equal(next.obstacles.length,state.obstacles.length);
   assert.equal(next.player.dropState,'falling');
+  assert.deepEqual(next.buildings,state.buildings);assert.deepEqual(next.regions,state.regions);
 });

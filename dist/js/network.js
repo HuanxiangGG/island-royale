@@ -37,7 +37,7 @@ export class MultiplayerClient {
         this.playerId = message.playerId ?? this.playerId;
         const first = this.frames.length === 0;
         const previous = this.frames.at(-1)?.state;
-        const merged = { ...message.state, obstacles:message.state.obstacles ?? previous?.obstacles ?? [], loot:message.state.loot ?? previous?.loot ?? [] };
+        const merged = { ...message.state, obstacles:message.state.obstacles ?? previous?.obstacles ?? [], loot:message.state.loot ?? previous?.loot ?? [], buildings:message.state.buildings ?? previous?.buildings ?? [], regions:message.state.regions ?? previous?.regions ?? [] };
         this.frames.push({ received: performance.now(), state: merged });
         if (this.frames.length > 5) this.frames.shift();
         const state = this.sample();

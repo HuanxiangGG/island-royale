@@ -1,6 +1,6 @@
 {
   "name": "island-royale",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "description": "荒岛突围 · 原创 2D 浏览器大逃杀游戏",
