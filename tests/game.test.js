@@ -519,3 +519,160 @@ test('bots traverse between every pair of neighboring houses without routing loo
     assert.equal(item.alive, false, `${fromIndex} -> ${toIndex}: exits source and enters target doorway`);
   }
 });
+
+function equipForTest(state, weapon, ammo = WEAPONS[weapon].magazine) {
+  const item = { weapon, rarity: 'common', ammo, reserve: 150 };
+  Object.assign(state.player, item, { inventory: [item], slot: 0, cooldown: 0, reloading: 0, burstRemaining: 0, burstCooldown: 0, burstWeapon: null, lastShotAt: -1000, lastTriggerAt: -1000 });
+}
+
+function advanceFine(state, seconds, input = {}) {
+  for (let elapsed = 0; elapsed < seconds - 0.000001; elapsed += 0.01) updateGame(state, 0.01, input);
+}
+
+test('fourteen distinct firearms preserve the original indices and expose useful categories', () => {
+  assert.equal(WEAPONS.length, 14);
+  assert.deepEqual(WEAPONS.slice(0, 5).map(weapon => weapon.id), ['rifle', 'smg', 'shotgun', 'marksman', 'pistol']);
+  assert.deepEqual(WEAPONS.slice(5).map(weapon => weapon.id), ['carbine', 'burst', 'lmg', 'sniper', 'autoshotgun', 'revolver', 'vector', 'suppressed', 'doublebarrel']);
+  assert.equal(new Set(WEAPONS.map(weapon => weapon.id)).size, 14);
+  assert.deepEqual([...new Set(WEAPONS.map(weapon => weapon.category))].sort(), ['步枪', '冲锋枪', '霰弹枪', '狙击枪', '手枪', '机枪'].sort());
+  assert.ok(WEAPONS.every(weapon => weapon.role && weapon.damage > 0 && weapon.magazine > 0 && weapon.fireRate > 0 && weapon.reloadTime > 0));
+  assert.ok(WEAPONS[7].magazine > WEAPONS[0].magazine * 2, 'LMG has a genuinely larger magazine');
+  assert.ok(WEAPONS[8].range > WEAPONS[3].range && WEAPONS[8].fireRate > WEAPONS[3].fireRate, 'heavy sniper trades cadence for reach');
+  assert.equal(WEAPONS[13].magazine, 2);
+});
+
+test('every generated match includes searchable copies of all fourteen guns and all six qualities', () => {
+  for (const seed of [1, 2, 7, 100]) {
+    const state = createGame({ seed });
+    const guns = state.loot.filter(item => item.alive && item.type === 'weapon');
+    assert.deepEqual([...new Set(guns.map(item => item.weapon))].sort((a, b) => a - b), WEAPONS.map((_, index) => index));
+    assert.equal(new Set(guns.map(item => item.rarity)).size, 6);
+    assert.ok(WEAPONS.every((_, index) => guns.some(item => item.weapon === index && item.buildingId)), 'guaranteed arsenal caches are inside searchable buildings');
+    assert.equal(new Set(state.actors.filter(actor => actor.isBot).map(actor => actor.weapon)).size, 14);
+  }
+});
+
+test('crate weapon rolls cover the entire fourteen-gun catalogue', () => {
+  const state = arena();
+  for (let weapon = 0; weapon < WEAPONS.length; weapon++) {
+    state.random = () => (weapon + 0.5) / WEAPONS.length;
+    state.loot = [];
+    state.obstacles = [{ id: 'supply-crate', x: state.player.x + 40, y: state.player.y, w: 40, h: 40, type: 'crate', alive: true, hp: 42 }];
+    assert.equal(pickup(state), true);
+    assert.equal(state.loot.find(item => item.type === 'weapon').weapon, weapon);
+  }
+});
+
+test('every gun can be collected, fired and reloaded through the same action API', () => {
+  for (let weapon = 0; weapon < WEAPONS.length; weapon++) {
+    const state = arena();
+    state.loot = [{ id: 'weapon-gift', type: 'weapon', x: 1410, y: 1400, weapon, rarity: 'epic', ammo: WEAPONS[weapon].magazine, reserve: 60, alive: true }];
+    assert.equal(pickup(state), true, WEAPONS[weapon].id + ' pickup');
+    assert.equal(state.player.weapon, weapon);
+    assert.equal(state.player.rarity, 'epic');
+    advance(state, 0.2);
+    updateGame(state, 0.01, { shoot: true, angle: 0 });
+    advanceFine(state, 0.25);
+    const spent = WEAPONS[weapon].burstCount || 1;
+    assert.equal(state.player.ammo, WEAPONS[weapon].magazine - spent, WEAPONS[weapon].id + ' firing');
+    assert.equal(reload(state), true, WEAPONS[weapon].id + ' reload starts');
+    advance(state, WEAPONS[weapon].reloadTime + 0.1);
+    assert.equal(state.player.ammo, WEAPONS[weapon].magazine);
+    assert.equal(state.player.reserve, 60 - spent);
+    assert.equal(state.player.inventory[state.player.slot].rarity, 'epic');
+  }
+});
+
+test('all six qualities apply to every gun without changing its weapon identity', () => {
+  const state = arena();
+  for (let weapon = 0; weapon < WEAPONS.length; weapon++) for (const quality of RARITIES) {
+    state.player.inventory = [];
+    state.loot = [{ id: 'quality-gift', type: 'weapon', x: 1410, y: 1400, weapon, rarity: quality.id, alive: true }];
+    assert.equal(pickup(state), true);
+    state.player.cooldown = 0;
+    state.bullets = [];
+    updateGame(state, 0.001, { shoot: true, angle: 0 });
+    assert.equal(state.player.weapon, weapon);
+    assert.equal(state.player.rarity, quality.id);
+    assert.equal(state.bullets.length, WEAPONS[weapon].pellets);
+    assert.equal(state.bullets[0].damage, WEAPONS[weapon].damage * quality.damageMultiplier);
+  }
+});
+
+test('one burst trigger fires three timed rounds even after the trigger is released', () => {
+  const state = arena();
+  equipForTest(state, 6);
+  updateGame(state, 0.01, { shoot: true, angle: 0 });
+  assert.equal(state.player.ammo, 26, 'first round fires immediately');
+  advanceFine(state, 0.05);
+  assert.equal(state.player.ammo, 26, 'the other rounds are not simultaneous pellets');
+  advanceFine(state, 0.04);
+  assert.equal(state.player.ammo, 25, 'second round follows the short burst interval');
+  advanceFine(state, 0.09);
+  assert.equal(state.player.ammo, 24);
+  advanceFine(state, 0.3);
+  assert.equal(state.player.ammo, 24, 'released trigger never starts a second group');
+});
+
+test('holding the burst rifle separates three-round groups with a real recovery gap', () => {
+  const state = arena(); equipForTest(state, 6);
+  const times = []; let ammo = state.player.ammo;
+  for (let i = 0; i < 100; i++) {
+    updateGame(state, 0.01, { shoot: true, angle: 0 });
+    if (state.player.ammo < ammo) { times.push(state.time); ammo = state.player.ammo; }
+  }
+  assert.equal(times.length, 6);
+  for (const group of [0, 3]) {
+    assert.ok(times[group + 1] - times[group] >= 0.075 && times[group + 1] - times[group] <= 0.095);
+    assert.ok(times[group + 2] - times[group + 1] >= 0.075 && times[group + 2] - times[group + 1] <= 0.095);
+  }
+  assert.ok(times[3] - times[2] > 0.4);
+});
+
+test('switching or reloading cancels queued burst rounds and partial magazines never overdraw', () => {
+  const switched = arena(); equipForTest(switched, 6);
+  switched.player.inventory.push({ weapon: 1, rarity: 'common', ammo: 36, reserve: 90 });
+  updateGame(switched, 0.01, { shoot: true });
+  assert.equal(switchWeapon(switched, 1), true);
+  advanceFine(switched, 0.25);
+  assert.equal(switched.player.ammo, 36);
+  assert.equal(switched.player.burstRemaining, 0);
+  assert.equal(switched.player.inventory[0].ammo, 26);
+
+  const reloaded = arena(); equipForTest(reloaded, 6);
+  updateGame(reloaded, 0.01, { shoot: true });
+  assert.equal(reload(reloaded), true);
+  advance(reloaded, 2);
+  assert.equal(reloaded.player.ammo, 27);
+  assert.equal(reloaded.player.reserve, 149, 'only the fired round is replenished');
+
+  const partial = arena(); equipForTest(partial, 6, 2);
+  updateGame(partial, 0.01, { shoot: true });
+  advanceFine(partial, 0.3);
+  assert.equal(partial.player.ammo, 0);
+  assert.equal(partial.player.burstRemaining, 0);
+});
+
+test('high-speed SMG cadence remains distinct at thirty and sixty updates per second', () => {
+  function shots(weapon, ticks) {
+    const state = arena(); equipForTest(state, weapon);
+    for (let i = 0; i < ticks; i++) updateGame(state, 1 / ticks, { shoot: true, angle: 0 });
+    return WEAPONS[weapon].magazine - state.player.ammo;
+  }
+  const vector30 = shots(11, 30), vector60 = shots(11, 60), regular30 = shots(1, 30);
+  assert.ok(vector30 >= 21 && vector30 <= 23);
+  assert.ok(Math.abs(vector30 - vector60) <= 1);
+  assert.ok(vector30 >= regular30 + 6);
+});
+
+test('all six building kinds retain the existing navigable house geometry contract', () => {
+  const state = createGame({ seed: 91, drop: false });
+  assert.equal(state.buildings.length, 27);
+  assert.deepEqual([...new Set(state.buildings.map(building => building.kind))].sort(), ['cottage', 'villa', 'workshop', 'barn', 'store', 'clinic'].sort());
+  for (const building of state.buildings) {
+    assert.ok(building.w >= 240 && building.h >= 230);
+    assert.equal(building.doorWidth, 110);
+    assert.ok(['north', 'east', 'west'].includes(building.doorSide));
+    assert.equal(state.obstacles.filter(obstacle => obstacle.buildingId === building.id && obstacle.type === 'wall').length, 5);
+  }
+});

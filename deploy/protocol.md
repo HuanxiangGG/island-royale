@@ -56,3 +56,5 @@
 - 没有真人连接的房间立即清理；比赛结束后保留结果 25 秒再关闭连接。
 - 同源网页允许连接；其他来源必须在 `ALLOWED_ORIGINS` 中精确配置。
 - 默认上限：6 个房间、120 个 WebSocket 连接；没有无限匹配队列。
+
+建筑元数据 `buildings[].kind` 为 cottage / villa / workshop / barn / store / clinic，用于客户端选择建筑外观。武器索引扩充为 0–13，前五种索引保持兼容。

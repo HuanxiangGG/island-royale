@@ -185,6 +185,7 @@ test('clients receive identical enterable buildings and walls, with static metad
   assert.deepEqual(sa.state.drop.route,sb.state.drop.route);
   assert.ok(sa.state.drop.route.start.x<sa.state.drop.route.end.x);
   assert.ok(sa.state.buildings.length>0);
+  assert.deepEqual([...new Set(sa.state.buildings.map(building=>building.kind))].sort(),['barn','clinic','cottage','store','villa','workshop']);
   assert.deepEqual(sa.state.buildings,sb.state.buildings);
   const building=sa.state.buildings[0];
   assert.ok(['north','south','east','west'].includes(building.doorSide));

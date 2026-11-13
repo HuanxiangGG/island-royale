@@ -20,12 +20,22 @@ export const RARITIES = [
   { id: 'mythic', name: '神话', color: '#f27d85', damageMultiplier: 1.31 },
 ];
 export const WEAPONS = [
-  { id: 'rifle', name: '突击步枪', skinName: '游骑兵', color: '#f2c45c', damage: 18, magazine: 30, fireRate: 0.135, reloadTime: 1.7, speed: 1060, spread: 0.045, pellets: 1, range: 760 },
-  { id: 'smg', name: '冲锋枪', skinName: '潮汐', color: '#6dd5ce', damage: 11, magazine: 36, fireRate: 0.075, reloadTime: 1.45, speed: 920, spread: 0.10, pellets: 1, range: 540 },
-  { id: 'shotgun', name: '霰弹枪', skinName: '赤砂', color: '#df9a74', damage: 11, magazine: 6, fireRate: 0.72, reloadTime: 2, speed: 930, spread: 0.24, pellets: 7, range: 360 },
-  { id: 'marksman', name: '精确步枪', skinName: '夜莺', color: '#bca0e9', damage: 46, magazine: 8, fireRate: 0.68, reloadTime: 2, speed: 1450, spread: 0.016, pellets: 1, range: 1050 },
-  { id: 'pistol', name: '手枪', skinName: '信使', color: '#b5c2c2', damage: 22, magazine: 12, fireRate: 0.27, reloadTime: 1.1, speed: 1000, spread: 0.035, pellets: 1, range: 620 },
+  { id: 'rifle', name: '突击步枪', skinName: '游骑兵', category: '步枪', role: '中距离均衡连射', color: '#f2c45c', damage: 18, magazine: 30, fireRate: 0.135, reloadTime: 1.7, speed: 1060, spread: 0.045, pellets: 1, range: 760 },
+  { id: 'smg', name: '冲锋枪', skinName: '潮汐', category: '冲锋枪', role: '近距离快速追击', color: '#6dd5ce', damage: 11, magazine: 36, fireRate: 0.075, reloadTime: 1.45, speed: 920, spread: 0.10, pellets: 1, range: 540 },
+  { id: 'shotgun', name: '霰弹枪', skinName: '赤砂', category: '霰弹枪', role: '近身高伤散射', color: '#df9a74', damage: 11, magazine: 6, fireRate: 0.72, reloadTime: 2, speed: 930, spread: 0.24, pellets: 7, range: 360 },
+  { id: 'marksman', name: '精确步枪', skinName: '夜莺', category: '狙击枪', role: '远距离精准追射', color: '#bca0e9', damage: 46, magazine: 8, fireRate: 0.68, reloadTime: 2, speed: 1450, spread: 0.016, pellets: 1, range: 1050 },
+  { id: 'pistol', name: '手枪', skinName: '信使', category: '手枪', role: '轻便可靠的副武器', color: '#b5c2c2', damage: 22, magazine: 12, fireRate: 0.27, reloadTime: 1.1, speed: 1000, spread: 0.035, pellets: 1, range: 620 },
+  { id: 'carbine', name: '卡宾步枪', skinName: '青锋', category: '步枪', role: '轻快点杀与快速换弹', color: '#9fcbb8', damage: 15, magazine: 24, fireRate: 0.105, reloadTime: 1.25, speed: 1180, spread: 0.028, pellets: 1, range: 700 },
+  { id: 'burst', name: '三连发步枪', skinName: '脉冲', category: '步枪', role: '三发短点射后重新瞄准', color: '#83afd7', damage: 20, magazine: 27, fireRate: 0.60, burstCount: 3, burstInterval: 0.085, reloadTime: 1.85, speed: 1250, spread: 0.028, pellets: 1, range: 860 },
+  { id: 'lmg', name: '轻机枪', skinName: '壁垒', category: '机枪', role: '大弹匣持续压制，持枪较慢', color: '#c3b078', damage: 16, magazine: 70, fireRate: 0.105, reloadTime: 3.8, speed: 1030, spread: 0.095, pellets: 1, range: 820, moveMultiplier: 0.85 },
+  { id: 'sniper', name: '重型狙击枪', skinName: '远星', category: '狙击枪', role: '超远程重击，射击间隔长', color: '#afa3d8', damage: 84, magazine: 5, fireRate: 1.38, reloadTime: 2.9, speed: 1750, spread: 0.006, pellets: 1, range: 1380, moveMultiplier: 0.92 },
+  { id: 'autoshotgun', name: '连发霰弹枪', skinName: '燎原', category: '霰弹枪', role: '贴身连续散射，远距衰弱', color: '#d79e83', damage: 9, magazine: 8, fireRate: 0.36, reloadTime: 2.75, speed: 880, spread: 0.30, pellets: 6, range: 260 },
+  { id: 'revolver', name: '大口径左轮', skinName: '黄昏', category: '手枪', role: '六发精准重弹', color: '#bd9b77', damage: 40, magazine: 6, fireRate: 0.48, reloadTime: 1.85, speed: 1180, spread: 0.018, pellets: 1, range: 740 },
+  { id: 'vector', name: '高速冲锋枪', skinName: '萤火', category: '冲锋枪', role: '极快射速，短弹匣近战', color: '#a6d586', damage: 8, magazine: 24, fireRate: 0.045, reloadTime: 1.35, speed: 860, spread: 0.16, pellets: 1, range: 400 },
+  { id: 'suppressed', name: '消音步枪', skinName: '雾隐', category: '步枪', role: '低枪口焰的稳定中程连射', color: '#94b0ac', damage: 17, magazine: 25, fireRate: 0.15, reloadTime: 1.65, speed: 1120, spread: 0.022, pellets: 1, range: 810, suppressed: true },
+  { id: 'doublebarrel', name: '双管霰弹枪', skinName: '荒原', category: '霰弹枪', role: '两次猛烈散射后整枪装填', color: '#d9b49b', damage: 10, magazine: 2, fireRate: 0.28, reloadTime: 2.3, speed: 970, spread: 0.22, pellets: 10, range: 300 },
 ];
+const BUILDING_KINDS = ['cottage', 'villa', 'workshop', 'barn', 'store', 'clinic'];
 
 const BOT_NAMES = ['山雀', '北风', '青柠', '野火', '渡鸦', '猎户', '杉木', '夜航', '游隼', '小满', '拾光', '薄荷', '星尘', '木槿', '海盐', '晚风', '松果', '霜叶', '远山', '流萤', '白鲨', '云雀', '飞鱼', '石榴', '极光', '岩鹿', '海鸥', '火花', '月白', '栗子', '乌桕', '白露', '苍耳', '海棠', '归雁', '新月', '落雪', '寒江', '阿橙', '青川', '海风', '晨星', '雪貂', '泡芙', '鲸落', '胡桃', '银杏', '山茶', '纸鸢'];
 const COLORS = ['#de8a72', '#ba9cce', '#7ac0c3', '#ddb767', '#a6c87e', '#de98bc'];
@@ -174,7 +184,7 @@ function syncInventory(actor) {
 }
 
 function makeActor(state, spec, position, isBot, index) {
-  const weapon = isBot ? (index % 9 === 0 ? 3 : index % 5) : 0;
+  const weapon = isBot ? index % WEAPONS.length : 0;
   const rarity = isBot ? (state.random() < 0.24 ? 'uncommon' : 'common') : 'common';
   const item = itemLoadout(weapon, rarity, WEAPONS[weapon].magazine, isBot ? 150 : 150);
   const actor = {
@@ -182,7 +192,7 @@ function makeActor(state, spec, position, isBot, index) {
     vx: 0, vy: 0, radius: 17, angle: 0, hp: 100, shield: isBot ? 25 : 50,
     alive: true, color: spec.color || (isBot ? COLORS[index % COLORS.length] : '#f3c65c'),
     isPlayer: !isBot, isBot, weapon, rarity, ammo: item.ammo, reserve: item.reserve,
-    inventory: [item], slot: 0, reloading: 0, cooldown: 0, medkits: isBot ? 1 : 2,
+    inventory: [item], slot: 0, reloading: 0, cooldown: 0, burstRemaining: 0, burstCooldown: 0, burstWeapon: null, lastShotAt: -1000, lastTriggerAt: -1000, medkits: isBot ? 1 : 2,
     kills: 0, placement: 0, hitFlash: 0, muzzleFlash: 0, healCooldown: 0,
     spawnProtection: state.phase === 'flight' ? 0 : isBot ? 0 : 6,
     dropState: state.phase === 'flight' ? 'plane' : 'ground', altitude: state.phase === 'flight' ? 1 : 0,
@@ -213,7 +223,7 @@ export function createGame({ seed = Date.now(), botCount = 49, name = '旅人', 
     state.obstacles.push(obstacle);
   };
   const addBuilding = (region, index, dx, dy, w, h) => {
-    const building = { id: `${region.id}-house-${index + 1}`, x: region.x + dx, y: region.y + dy, w, h, doorSide: index === 0 ? 'east' : index === 1 ? 'west' : 'north', doorWidth: 110, style: (region.style + index) % 3, name: region.name };
+    const building = { id: `${region.id}-house-${index + 1}`, x: region.x + dx, y: region.y + dy, w, h, doorSide: index === 0 ? 'east' : index === 1 ? 'west' : 'north', doorWidth: 110, style: (region.style + index) % 3, kind: BUILDING_KINDS[(state.regions.indexOf(region) + index * 2) % BUILDING_KINDS.length], name: region.name };
     state.buildings.push(building);
     for (const side of ['north', 'south', 'west', 'east']) {
       const horizontal = side === 'north' || side === 'south';
@@ -285,9 +295,11 @@ export function createGame({ seed = Date.now(), botCount = 49, name = '旅人', 
     const region = state.regions[i % state.regions.length];
     addLoot(state, region.x + (state.random() - 0.5) * 1700, region.y + (state.random() - 0.5) * 1500, ['weapon', 'ammo', 'shield', 'medkit'][i % 4]);
   }
-  for (let i = 0; i < RARITIES.length; i++) {
-    const building = state.buildings[i * 4];
-    addLoot(state, building.x, building.y + 5, 'weapon', i % WEAPONS.length, RARITIES[i].id);
+  // A fixed arsenal cache distribution makes every gun searchable in every match.
+  // Quality remains independent of weapon identity, including random crates and loose drops.
+  for (let i = 0; i < WEAPONS.length; i++) {
+    const building = state.buildings[(i * 2) % state.buildings.length];
+    addLoot(state, building.x, building.y + 8, 'weapon', i, RARITIES[i % RARITIES.length].id);
   }
   addLoot(state, WORLD_SIZE / 2 + 90, WORLD_SIZE / 2 + 30, 'weapon', 1, 'uncommon');
   addLoot(state, WORLD_SIZE / 2 - 70, WORLD_SIZE / 2 + 60, 'shield');
@@ -300,6 +312,7 @@ export const aliveCount = state => state.actors.reduce((count, actor) => count +
 
 export function reload(state, actor = state.player) {
   if (!combatReady(state, actor) || actor.reloading > 0 || actor.ammo >= WEAPONS[actor.weapon].magazine || actor.reserve <= 0) return false;
+  cancelBurst(actor);
   actor.reloading = WEAPONS[actor.weapon].reloadTime;
   return true;
 }
@@ -307,6 +320,7 @@ export function reload(state, actor = state.player) {
 export function switchWeapon(state, slot, actor = state.player) {
   if (!combatReady(state, actor) || !Number.isInteger(slot) || slot < 0 || slot >= actor.inventory.length || slot === actor.slot) return false;
   syncInventory(actor);
+  cancelBurst(actor);
   setActiveSlot(actor, slot);
   actor.reloading = 0;
   actor.cooldown = Math.max(actor.cooldown, 0.16);
@@ -370,6 +384,7 @@ function collectLoot(state, actor, item) {
       const previous = actor.inventory[slot];
       if (previous) addLoot(state, actor.x + 34, actor.y + 34, 'weapon', previous.weapon, previous.rarity, previous);
       actor.inventory[slot] = candidate;
+      cancelBurst(actor);
       setActiveSlot(actor, slot);
       actor.reloading = 0;
       actor.cooldown = 0.18;
@@ -423,6 +438,7 @@ function eliminate(state, actor, owner) {
   actor.placement = aliveCount(state);
   actor.alive = false;
   actor.hp = 0;
+  cancelBurst(actor);
   actor.vx = 0; actor.vy = 0;
   syncInventory(actor);
   burst(state, actor.x, actor.y, actor.color, 14);
@@ -446,19 +462,60 @@ function damageActor(state, actor, damage, owner, bypassShield = false) {
   if (actor.hp <= 0) eliminate(state, actor, owner);
 }
 
-function shoot(state, actor) {
-  if (!combatReady(state, actor) || actor.cooldown > 0 || actor.reloading > 0) return;
-  if (actor.ammo <= 0) { reload(state, actor); return; }
+function cancelBurst(actor) {
+  actor.burstRemaining = 0;
+  actor.burstCooldown = 0;
+  actor.burstWeapon = null;
+}
+
+function emitRound(state, actor) {
   const weapon = WEAPONS[actor.weapon], quality = rarityInfo(actor.rarity);
   actor.ammo--;
-  actor.cooldown = weapon.fireRate;
+  actor.lastShotAt = state.time;
   const x = actor.x + Math.cos(actor.angle) * 26, y = actor.y + Math.sin(actor.angle) * 26;
   for (let i = 0; i < weapon.pellets; i++) {
     const angle = actor.angle + (state.random() - 0.5) * weapon.spread * 2;
     state.bullets.push({ x, y, px: x, py: y, vx: Math.cos(angle) * weapon.speed, vy: Math.sin(angle) * weapon.speed, owner: actor.id, damage: weapon.damage * quality.damageMultiplier, life: weapon.range / weapon.speed, color: quality.color });
   }
-  actor.muzzleFlash = 0.05;
+  actor.muzzleFlash = weapon.suppressed ? 0.018 : 0.05;
   syncInventory(actor);
+}
+
+function shoot(state, actor) {
+  const continuousTrigger = state.time - actor.lastTriggerAt <= 0.06;
+  actor.lastTriggerAt = state.time;
+  if (!combatReady(state, actor) || actor.cooldown > 1e-8 || actor.reloading > 0 || actor.burstRemaining > 0) return;
+  if (actor.ammo <= 0) { reload(state, actor); return; }
+  const weapon = WEAPONS[actor.weapon];
+  // Carry fractional cadence across ticks. A fast gun must not become an ordinary
+  // SMG merely because the server runs at thirty updates per second.
+  if (!continuousTrigger) actor.cooldown = 0;
+  if (weapon.burstCount) {
+    emitRound(state, actor);
+    actor.cooldown += weapon.fireRate;
+    actor.burstRemaining = Math.min(weapon.burstCount - 1, actor.ammo);
+    actor.burstCooldown = weapon.burstInterval;
+    actor.burstWeapon = actor.weapon;
+    return;
+  }
+  let rounds = 0;
+  do {
+    emitRound(state, actor);
+    actor.cooldown += weapon.fireRate;
+  } while (actor.cooldown <= 1e-8 && actor.ammo > 0 && ++rounds < 3);
+}
+
+function continueBurst(state, actor) {
+  if (actor.burstRemaining <= 0) return;
+  if (!combatReady(state, actor) || actor.reloading > 0 || actor.burstWeapon !== actor.weapon || actor.ammo <= 0) { cancelBurst(actor); return; }
+  const weapon = WEAPONS[actor.weapon];
+  while (actor.burstRemaining > 0 && actor.burstCooldown <= 1e-8) {
+    emitRound(state, actor);
+    actor.burstRemaining--;
+    actor.burstCooldown += weapon.burstInterval;
+    if (actor.ammo <= 0) { cancelBurst(actor); break; }
+  }
+  if (actor.burstRemaining === 0) actor.burstWeapon = null;
 }
 
 function segmentCircle(x1, y1, x2, y2, cx, cy, radius) {
@@ -638,10 +695,10 @@ function botUpdate(state, actor, dt) {
     goal = { x: actor.x + Math.cos(direction) * 230, y: actor.y + Math.sin(direction) * 230 };
     if (actor.aiReaction <= 0 && actor.aiPause <= 0 && Math.abs(angleDifference(aim, actor.angle)) < 0.16 && d < WEAPONS[actor.weapon].range * 0.88 && lineOfSight(state, actor, target)) {
       if (actor.aiBurst <= 0) actor.aiBurst = state.difficulty === 'easy' ? 2 : 3 + Math.floor(state.random() * 4);
-      if (actor.cooldown <= 0 && actor.reloading <= 0) {
+      if (actor.reloading <= 0) {
         const ammoBefore = actor.ammo;
         shoot(state, actor);
-        if (actor.ammo < ammoBefore && --actor.aiBurst <= 0) actor.aiPause = state.difficulty === 'hard' ? 0.22 + state.random() * 0.3 : 0.55 + state.random() * 0.7;
+        if (actor.ammo < ammoBefore && (actor.aiBurst -= ammoBefore - actor.ammo) <= 0) actor.aiPause = state.difficulty === 'hard' ? 0.22 + state.random() * 0.3 : 0.55 + state.random() * 0.7;
       }
     }
   }
@@ -669,7 +726,7 @@ function botUpdate(state, actor, dt) {
     actor.dodgeTime = 0.7;
   }
   if (actor.dodgeTime > 0 && !navigation.doorway) direction = actor.dodgeAngle;
-  moveActor(state, actor, Math.cos(direction) * pace, Math.sin(direction) * pace, 205, dt);
+  moveActor(state, actor, Math.cos(direction) * pace, Math.sin(direction) * pace, 205 * (WEAPONS[actor.weapon].moveMultiplier || 1), dt);
   if (actor.ammo < 1 || !target && actor.ammo < WEAPONS[actor.weapon].magazine * 0.4) reload(state, actor);
   if (actor.hp < 45 && (!target || distance(actor, target) > 280)) heal(state, actor);
 }
@@ -769,7 +826,9 @@ function stepFrame(state, dt, inputs) {
   if (state.phase === 'combat') state.combatTime += dt;
   for (const actor of state.actors) {
     if (!actor.alive || actor.dropState !== 'ground') continue;
-    for (const key of ['cooldown', 'hitFlash', 'muzzleFlash', 'spawnProtection', 'healCooldown']) actor[key] = Math.max(0, actor[key] - dt);
+    actor.cooldown = Math.max(-dt, actor.cooldown - dt);
+    if (actor.burstRemaining > 0) actor.burstCooldown -= dt;
+    for (const key of ['hitFlash', 'muzzleFlash', 'spawnProtection', 'healCooldown']) actor[key] = Math.max(0, actor[key] - dt);
     if (actor.reloading > 0) {
       actor.reloading = Math.max(0, actor.reloading - dt);
       if (actor.reloading === 0) { const amount = Math.min(WEAPONS[actor.weapon].magazine - actor.ammo, actor.reserve); actor.ammo += amount; actor.reserve -= amount; syncInventory(actor); }
@@ -778,9 +837,10 @@ function stepFrame(state, dt, inputs) {
     else {
       const input = inputs[actor.id] || {};
       if (Number.isFinite(input.angle)) actor.angle = input.angle;
-      moveActor(state, actor, finite(input.moveX), finite(input.moveY), input.sprint && !input.shoot ? 295 : 225, dt);
+      moveActor(state, actor, finite(input.moveX), finite(input.moveY), (input.sprint && !input.shoot ? 295 : 225) * (WEAPONS[actor.weapon].moveMultiplier || 1), dt);
       if (input.shoot) shoot(state, actor);
     }
+    continueBurst(state, actor);
   }
   updateBullets(state, dt);
   for (const particle of state.particles) { particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.life -= dt; }

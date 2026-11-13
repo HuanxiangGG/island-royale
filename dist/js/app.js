@@ -187,17 +187,48 @@ function updateHUD(){
   const events=(state.events||[]).filter(e=>state.time-e.time<7).slice(0,4);$('feed').replaceChildren(...events.map(e=>{const div=document.createElement('div');div.textContent=e.text;return div;}));
   drawFullMap();
 }
+let arsenalCategory='全部', arsenalQuality='rare';
+function renderArsenal(){
+  const quality=rarity(arsenalQuality);
+  const choices=WEAPONS.map((weapon,index)=>({weapon,index})).filter(({weapon})=>arsenalCategory==='全部'||weapon.category===arsenalCategory);
+  $('arsenal-count').textContent=`${choices.length} / ${WEAPONS.length} 款`;
+  $('weapon-gallery').replaceChildren(...choices.map(({weapon,index})=>{
+    const skin=WEAPON_SKINS[index],card=document.createElement('article');card.className='weapon-card';card.style.setProperty('--rarity',quality.color);
+    const meta=document.createElement('div');meta.className='weapon-meta';
+    const number=document.createElement('b');number.textContent=String(index+1).padStart(2,'0');
+    const category=document.createElement('span');category.textContent=weapon.category||'武器';meta.append(number,category);
+    const art=document.createElement('div');art.className='weapon-display';art.innerHTML=weaponSVG(index,arsenalQuality);
+    const heading=document.createElement('h3');heading.textContent=weapon.name;
+    const finish=document.createElement('p');finish.className='weapon-finish';finish.textContent=skin?.name||weapon.skinName;
+    const role=document.createElement('p');role.className='weapon-role';role.textContent=weapon.role||skin?.finish||'搜集装备，选择适合你的打法。';
+    const details=document.createElement('dl');details.className='weapon-specs';
+    const damage=Math.round(weapon.damage*quality.damageMultiplier*10)/10;
+    const range=weapon.range<500?'近距离':weapon.range<700?'中近距离':weapon.range<950?'中距离':weapon.range<1200?'中远距离':'远距离';
+    for(const [label,value] of [['单发伤害',weapon.pellets>1?`${damage} × ${weapon.pellets}`:String(damage)],['弹匣',`${weapon.magazine} 发`],['装填',`${weapon.reloadTime} 秒`],['射程',range]]){
+      const row=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value;row.append(term,description);details.append(row);
+    }
+    card.append(meta,art,heading,finish,role,details);return card;
+  }));
+  document.querySelectorAll('[data-arsenal-category]').forEach(button=>{const active=button.dataset.arsenalCategory===arsenalCategory;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));});
+  document.querySelectorAll('[data-arsenal-quality]').forEach(button=>{const active=button.dataset.arsenalQuality===arsenalQuality;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));});
+}
 function fillArsenal(){
-  $('hero-weapons').innerHTML=[0,2,3].map((index,i)=>`<span style="--rarity:${RARITIES[i+2].color}">${weaponSVG(index,RARITIES[i+2].id)}</span>`).join('');
-  $('rarity-legend').replaceChildren(...RARITIES.map(q=>{const span=document.createElement('span');span.style.setProperty('--rarity',q.color);span.textContent=q.name;return span;}));
-  const gallery=WEAPONS.map((weapon,index)=>{
-    const card=document.createElement('article');card.className='weapon-card';const q=RARITIES[Math.min(index+1,5)];card.style.setProperty('--rarity',q.color);
-    const image=document.createElement('div');image.className='weapon-display';image.innerHTML=weaponSVG(index,q.id);const heading=document.createElement('h3');heading.textContent=weapon.name;
-    const skin=document.createElement('p');skin.textContent=WEAPON_SKINS[index]?.name||weapon.skinName||'原创涂装';const desc=document.createElement('small');desc.textContent=WEAPON_SKINS[index]?.finish||`${weapon.magazine} 发弹匣 · 独立枪身与细节`;
-    card.append(image,heading,skin,desc);return card;
-  });$('weapon-gallery').replaceChildren(...gallery);
+  $('hero-weapons').innerHTML=[7,8,13].filter(index=>WEAPONS[index]).map((index,i)=>`<span style="--rarity:${RARITIES[i+2].color}">${weaponSVG(index,RARITIES[i+2].id)}</span>`).join('');
+  $('weapon-total').textContent=`探索全部 ${WEAPONS.length} 款武器 ↗`;
+  $('arsenal-filters').replaceChildren(...['全部',...new Set(WEAPONS.map(weapon=>weapon.category||'武器'))].map(category=>{
+    const button=document.createElement('button');button.dataset.arsenalCategory=category;button.textContent=category;button.onclick=()=>{arsenalCategory=category;renderArsenal();};return button;
+  }));
+  $('rarity-legend').replaceChildren(...RARITIES.map(quality=>{
+    const button=document.createElement('button');button.style.setProperty('--rarity',quality.color);button.dataset.arsenalQuality=quality.id;button.textContent=quality.name;button.setAttribute('aria-label',`预览${quality.name}品质`);button.onclick=()=>{arsenalQuality=quality.id;renderArsenal();};return button;
+  }));
+  renderArsenal();
 }
 fillArsenal();for(const id of ['arsenal-open','armory-preview'])$(id).onclick=()=>$('arsenal-dialog').showModal();
+function shotSound(){
+  const weapon=WEAPONS[state.player.weapon],category=weapon.category;
+  const frequency=weapon.id==='suppressed'?320:category==='霰弹枪'?90:category==='狙击枪'?75:category==='机枪'?125:category==='冲锋枪'?235:category==='手枪'?155:185;
+  tone(frequency,category==='狙击枪'?.11:category==='霰弹枪'?.085:.045,weapon.id==='suppressed'?'triangle':'sawtooth',weapon.id==='suppressed'?.008:.018);
+}
 function input(){
   if(paused||document.hidden)return{moveX:0,moveY:0,angle:state.player.angle,shoot:false,sprint:false,jump:false};
   const aim=renderer.screenToWorld(pointer.x,pointer.y);
@@ -209,7 +240,7 @@ function frame(now){
     if(network){network.setInput(input());const next=network.sample(now);if(next)state=next;}
     else if(!paused)updateGame(state,dt,input());
     jumpRequested=false;
-    if(state.player.ammo<previousAmmo)tone(150+state.player.weapon*40,.045,'sawtooth',.018);if(state.player.hp<previousHP)tone(70,.08,'sine',.06);
+    if(state.player.ammo<previousAmmo)shotSound();if(state.player.hp<previousHP)tone(70,.08,'sine',.06);
     previousAmmo=state.player.ammo;previousHP=state.player.hp;
     if(state.status==='won'||state.status==='lost')finish();
   }

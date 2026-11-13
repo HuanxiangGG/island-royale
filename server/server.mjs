@@ -24,7 +24,7 @@ export function snapshotState(state, {includeObstacles=true,includeLoot=true,inc
   };
   if (includeObstacles) snapshot.obstacles=state.obstacles.map(obstacle=>pick(obstacle,['id','x','y','w','h','type','hp','maxHp','alive','buildingId']));
   if (includeLoot) snapshot.loot=state.loot.filter(item=>item.alive).map(item=>pick(item,['id','x','y','type','weapon','rarity','amount','alive']));
-  if (includeBuildings) snapshot.buildings=(state.buildings || []).map(building=>pick(building,['id','x','y','w','h','doorSide','doorWidth','style','name']));
+  if (includeBuildings) snapshot.buildings=(state.buildings || []).map(building=>pick(building,['id','x','y','w','h','doorSide','doorWidth','style','kind','name']));
   if (includeRegions) snapshot.regions=(state.regions || []).map(region=>pick(region,['id','name','x','y','style']));
   return snapshot;
 }
